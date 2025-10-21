@@ -9,20 +9,23 @@ Supports various date input formats:
 Synopsis: <trigger> [date]"""
 
 from albert import *
-import os
 import json
 import urllib.request
 import urllib.parse
 import re
-from datetime import datetime
+from pathlib import Path
+import sys
 
-__title__ = "Hebrew Calendar"
-__version__ = "1.0.0"
-__triggers__ = "hebcal "
-__authors__ = "Guy Khmelnitsky"
-__exec_deps__ = []
+# Metadata for Albert v4.0
+md_iid = "4.0"
+md_version = "0.0.1"
+md_name = "Hebrew Calendar Converter"
+md_description = "Convert Hebrew dates to Gregorian and vice versa"
+md_url = "https://github.com/albertlauncher/albert-plugin-python-hebcal"
+md_authors = ["@GuyKh"]
+md_maintainers = ["@GuyKh"]
 
-iconPath = os.path.dirname(__file__) + "/logo.svg"
+iconPath = str(Path(__file__).parent / "logo.svg")
 
 # Hebrew month names mapping
 HEBREW_MONTHS = {
@@ -32,44 +35,71 @@ HEBREW_MONTHS = {
     'tamuz': 'Tamuz', 'av': 'Av', 'elul': 'Elul'
 }
 
-def handleQuery(query):
-    if query.isTriggered:
-        if not query.string.strip():
-            return Item(
-                id=__title__,
-                icon=iconPath,
-                text="Hebrew Calendar Converter",
-                subtext="Enter a Hebrew or Gregorian date to convert",
-                actions=[]
-            )
 
-        date_str = query.string.strip()
+class Plugin(PluginInstance, TriggerQueryHandler):
+    def __init__(self):
+        PluginInstance.__init__(self)
+        TriggerQueryHandler.__init__(self)
+
+    def id(self):
+        return md_name
+
+    def name(self):
+        return md_name
+
+    def description(self):
+        return md_description
+
+    def defaultTrigger(self):
+        return "hebcal "
+
+    def handleTriggerQuery(self, query):
+        query_string = query.string.strip()
+        
+        # Debug logging
+        debug(f"[hebcal] Query triggered with: '{query_string}'")
+        
+        if not query_string:
+            query.add(StandardItem(
+                id=md_name,
+                icon_factory=lambda: makeImageIcon(iconPath),
+                text="Hebrew Calendar Converter",
+                subtext="Enter a Hebrew or Gregorian date to convert"
+            ))
+            return
+
         items = []
 
         # Try to parse as Gregorian date
-        gregorian_result = parseGregorianDate(date_str)
+        gregorian_result = parseGregorianDate(query_string)
+        debug(f"[hebcal] Gregorian parse result: {gregorian_result}")
         if gregorian_result:
             hebrew_date = convertGregorianToHebrew(gregorian_result)
+            debug(f"[hebcal] Hebrew conversion: {hebrew_date}")
             if hebrew_date:
                 items.append(createResultItem(gregorian_result, hebrew_date, False))
 
         # Try to parse as Hebrew date
-        hebrew_result = parseHebrewDate(date_str)
+        hebrew_result = parseHebrewDate(query_string)
+        debug(f"[hebcal] Hebrew parse result: {hebrew_result}")
         if hebrew_result:
             gregorian_date = convertHebrewToGregorian(hebrew_result)
+            debug(f"[hebcal] Gregorian conversion: {gregorian_date}")
             if gregorian_date:
                 items.append(createResultItem(hebrew_result, gregorian_date, True))
 
+        debug(f"[hebcal] Adding {len(items)} items")
+
         if not items:
-            return Item(
-                id=__title__,
-                icon=iconPath,
+            query.add(StandardItem(
+                id=md_name,
+                icon_factory=lambda: makeImageIcon(iconPath),
                 text="Invalid date format",
-                subtext="Try formats like '5784 Kislev 25', '2023-12-08', or 'December 8, 2023'",
-                actions=[]
-            )
-        
-        return items
+                subtext="Try formats like '5784 Kislev 25', '2023-12-08', or 'December 8, 2023'"
+            ))
+        else:
+            for item in items:
+                query.add(item)
 
 def parseHebrewDate(date_str):
     """Parse Hebrew date string into components."""
@@ -208,13 +238,13 @@ def createResultItem(input_date, output_date, hebrew_to_gregorian):
         output_text = output_date['formatted']
         conversion_type = "Gregorian → Hebrew"
     
-    return Item(
-        id=__title__,
-        icon=iconPath,
+    return StandardItem(
+        id=md_name,
+        icon_factory=lambda: makeImageIcon(iconPath),
         text=output_text,
         subtext=f"{conversion_type}: {input_text}",
         actions=[
-            ClipAction("Copy to clipboard", output_text),
-            ClipAction("Copy input date", input_text)
+            Action("copy", "Copy to clipboard", lambda ot=output_text: setClipboardText(ot)),
+            Action("copy-input", "Copy input date", lambda it=input_text: setClipboardText(it))
         ]
     )
