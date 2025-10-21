@@ -1,0 +1,7 @@
+[metadata]
+name = Hebrew Calendar
+description = Convert Hebrew dates to Gregorian and vice versa using Hebcal API
+version = 1.0.0
+author = Guy Khmelnitsky
+dependencies = 
+url = https://github.com/albertlauncher/albert-plugin-python-hebcal
